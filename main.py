@@ -80,8 +80,8 @@ async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     text = (
-        "🔥 **Welcome to Deadpool Audio/Video Renamer!**\n\n"
-        "I can help you rename files, inject metadata, customize thumbnails, "
+        "🔥 **Welcome to Deadpool Audio Renamer!**\n\n"
+        "I can help you rename audio tracks, inject metadata, customize thumbnails, "
         "and apply personal captions automatically.\n\n"
         "Choose an option below to manage your preferences:"
     )
@@ -239,8 +239,8 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = (
             "ℹ️ **ABOUT BOT**\n\n"
             f"• **Developer/Owner:** {Config.OWNER_USERNAME}\n"
-            f"• **Theme:** Deadpool Audio/Video Renamer\n\n"
-            "High-performance renaming bot built with clean modular architecture."
+            f"• **Theme:** Deadpool Audio Renamer\n\n"
+            "High-performance audio renaming bot built with clean modular architecture."
         )
         keyboard = [
             [
@@ -319,18 +319,18 @@ async def text_and_media_input_handler(update: Update, context: ContextTypes.DEF
     
     await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
-async def handle_media_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Processes incoming audio, video, or document files, applying user custom settings, titles, and captions."""
+async def handle_audio_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Processes incoming audio files specifically, applying custom title, artist, thumbnail, and caption."""
     user_id = update.effective_user.id
     
-    # Ignore if user is in the middle of a setting state (like typing a title/caption or uploading a thumbnail)
+    # Ignore if user is in the middle of a setting state
     if user_id in USER_STATES:
         return
 
     message = update.message
-    media = message.audio or message.document or message.video
+    audio = message.audio
     
-    if not media:
+    if not audio:
         return
 
     # Check F-Sub first
@@ -341,8 +341,8 @@ async def handle_media_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Fetch user settings from database
     settings = await db.get_user_settings(user_id)
     
-    original_name = getattr(media, "file_name", "audio_file.mp3")
-    file_size_bytes = getattr(media, "file_size", 0)
+    original_name = getattr(audio, "file_name", "audio_file.mp3")
+    file_size_bytes = getattr(audio, "file_size", 0)
     
     # Format file size nicely (MB/KB)
     if file_size_bytes > 1024 * 1024:
@@ -369,37 +369,27 @@ async def handle_media_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         caption = f"🎵 **Title:** {custom_title}\n🎙️ **Artist:** {custom_artist}\n📊 **Size:** {size_str}\n\nvia : @BossAudioRenamerBot 🎊"
 
-    status_msg = await message.reply_text("📥 Downloading and processing your file...")
+    status_msg = await message.reply_text("📥 Downloading and processing your audio file...")
 
     try:
-        # Download file
-        file = await context.bot.get_file(media.file_id)
+        # Download audio file
+        file = await context.bot.get_file(audio.file_id)
         file_path = f"downloads_{user_id}_{original_name}"
         await file.download_to_drive(file_path)
 
         thumbnail = settings.get("thumbnail") # file_id of saved custom thumbnail
 
-        # Send back the processed file with custom caption and thumbnail
-        if message.audio or (message.document and original_name.endswith(('.mp3', '.m4a', '.flac', '.wav'))):
-            with open(file_path, 'rb') as audio_file:
-                await context.bot.send_audio(
-                    chat_id=user_id,
-                    audio=audio_file,
-                    title=custom_title,
-                    performer=custom_artist,
-                    caption=caption,
-                    parse_mode="Markdown",
-                    thumb=thumbnail if thumbnail else None
-                )
-        else:
-            with open(file_path, 'rb') as doc_file:
-                await context.bot.send_document(
-                    chat_id=user_id,
-                    document=doc_file,
-                    caption=caption,
-                    parse_mode="Markdown",
-                    thumb=thumbnail if thumbnail else None
-                )
+        # Send back the processed audio file
+        with open(file_path, 'rb') as audio_file:
+            await context.bot.send_audio(
+                chat_id=user_id,
+                audio=audio_file,
+                title=custom_title,
+                performer=custom_artist,
+                caption=caption,
+                parse_mode="Markdown",
+                thumb=thumbnail if thumbnail else None
+            )
 
         # Cleanup local file
         if os.path.exists(file_path):
@@ -408,7 +398,7 @@ async def handle_media_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await status_msg.delete()
 
     except Exception as e:
-        logger.error(f"Error processing media file for user {user_id}: {e}")
+        logger.error(f"Error processing audio file for user {user_id}: {e}")
         await status_msg.edit_text(f"❌ Error processing file: `{e}`", parse_mode="Markdown")
 
 def run_dummy_server():
@@ -417,7 +407,7 @@ def run_dummy_server():
         def do_GET(self):
             self.send_response(200)
             self.end_headers()
-            self.wfile.write(b"Deadpool Renamer Bot is alive and running!")
+            self.wfile.write(b"Deadpool Audio Renamer Bot is alive and running!")
             
     port = int(os.environ.get("PORT", 10000))
     server = HTTPServer(("0.0.0.0", port), DummyHandler)
@@ -439,7 +429,7 @@ def main():
     app.add_handler(CallbackQueryHandler(sub_menu_handler, pattern="^menu_"))
     app.add_handler(CallbackQueryHandler(button_router))
     app.add_handler(MessageHandler(filters.PHOTO | (filters.TEXT & ~filters.COMMAND), text_and_media_input_handler))
-    app.add_handler(MessageHandler(filters.AUDIO | filters.DOCUMENT | filters.VIDEO, handle_media_file))
+    app.add_handler(MessageHandler(filters.AUDIO, handle_audio_file))
 
     logger.info("Deadpool Audio Renamer Bot is up and running...")
     app.run_polling()
