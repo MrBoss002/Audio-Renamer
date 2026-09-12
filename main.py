@@ -31,9 +31,10 @@ async def is_user_subscribed(bot, user_id: int) -> bool:
     for channel_id in [Config.CHANNEL_1_ID, Config.CHANNEL_2_ID]:
         try:
             member = await bot.get_chat_member(chat_id=channel_id, user_id=user_id)
-            if member.status in ["left", "kicked"]:
+            if member.status not in ["creator", "administrator", "member"]:
                 return False
-        except Exception:
+        except Exception as e:
+            logger.error(f"F-Sub check error for channel {channel_id}: {e}")
             return False
     return True
 
@@ -318,6 +319,98 @@ async def text_and_media_input_handler(update: Update, context: ContextTypes.DEF
     
     await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
+async def handle_media_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Processes incoming audio, video, or document files, applying user custom settings, titles, and captions."""
+    user_id = update.effective_user.id
+    
+    # Ignore if user is in the middle of a setting state (like typing a title/caption or uploading a thumbnail)
+    if user_id in USER_STATES:
+        return
+
+    message = update.message
+    media = message.audio or message.document or message.video
+    
+    if not media:
+        return
+
+    # Check F-Sub first
+    if not await is_user_subscribed(context.bot, user_id):
+        await send_fsub_message(update, context)
+        return
+
+    # Fetch user settings from database
+    settings = await db.get_user_settings(user_id)
+    
+    original_name = getattr(media, "file_name", "audio_file.mp3")
+    file_size_bytes = getattr(media, "file_size", 0)
+    
+    # Format file size nicely (MB/KB)
+    if file_size_bytes > 1024 * 1024:
+        size_str = f"{file_size_bytes / (1024 * 1024):.2f} MB"
+    else:
+        size_str = f"{file_size_bytes / 1024:.2f} KB"
+
+    # Extract clean title and artist defaults from filename if custom settings aren't provided
+    base_name = os.path.splitext(original_name)[0]
+    custom_title = settings.get("audio_title") or base_name
+    custom_artist = settings.get("artist_name") or "Unknown Artist"
+    
+    # Build custom caption using user settings or default layout with bot signature
+    raw_caption = settings.get("caption")
+    if raw_caption:
+        try:
+            caption = raw_caption.format(
+                title=custom_title,
+                artist=custom_artist,
+                size=size_str
+            )
+        except Exception:
+            caption = f"🎵 {custom_title} - {custom_artist} [{size_str}]\n\nvia : @BossAudioRenamerBot 🎊"
+    else:
+        caption = f"🎵 **Title:** {custom_title}\n🎙️ **Artist:** {custom_artist}\n📊 **Size:** {size_str}\n\nvia : @BossAudioRenamerBot 🎊"
+
+    status_msg = await message.reply_text("📥 Downloading and processing your file...")
+
+    try:
+        # Download file
+        file = await context.bot.get_file(media.file_id)
+        file_path = f"downloads_{user_id}_{original_name}"
+        await file.download_to_drive(file_path)
+
+        thumbnail = settings.get("thumbnail") # file_id of saved custom thumbnail
+
+        # Send back the processed file with custom caption and thumbnail
+        if message.audio or (message.document and original_name.endswith(('.mp3', '.m4a', '.flac', '.wav'))):
+            with open(file_path, 'rb') as audio_file:
+                await context.bot.send_audio(
+                    chat_id=user_id,
+                    audio=audio_file,
+                    title=custom_title,
+                    performer=custom_artist,
+                    caption=caption,
+                    parse_mode="Markdown",
+                    thumb=thumbnail if thumbnail else None
+                )
+        else:
+            with open(file_path, 'rb') as doc_file:
+                await context.bot.send_document(
+                    chat_id=user_id,
+                    document=doc_file,
+                    caption=caption,
+                    parse_mode="Markdown",
+                    thumb=thumbnail if thumbnail else None
+                )
+
+        # Cleanup local file
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            
+        await status_msg.delete()
+
+    except Exception as e:
+        logger.error(f"Error processing media file for user {user_id}: {e}")
+        await status_msg.edit_text(f"❌ Error processing file: `{e}`", parse_mode="Markdown")
+
 def run_dummy_server():
     """Starts a minimal HTTP server to satisfy Render's port-binding check."""
     class DummyHandler(BaseHTTPRequestHandler):
@@ -346,6 +439,7 @@ def main():
     app.add_handler(CallbackQueryHandler(sub_menu_handler, pattern="^menu_"))
     app.add_handler(CallbackQueryHandler(button_router))
     app.add_handler(MessageHandler(filters.PHOTO | (filters.TEXT & ~filters.COMMAND), text_and_media_input_handler))
+    app.add_handler(MessageHandler(filters.AUDIO | filters.DOCUMENT | filters.VIDEO, handle_media_file))
 
     logger.info("Deadpool Audio Renamer Bot is up and running...")
     app.run_polling()
