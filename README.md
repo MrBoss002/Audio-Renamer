@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="https://i.ibb.co/HDtx1FcD/file-22.jpg" alt="Bot Preview" width="25%">
+
 # ⚡ DeadPool Audio Renamer
 
 A high-performance, lightweight Telegram bot built with `python-telegram-bot` and MongoDB, designed for advanced audio/video renaming, custom metadata injection, permanent thumbnail management, and automated caption styling.
