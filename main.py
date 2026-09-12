@@ -23,6 +23,18 @@ logger = logging.getLogger(__name__)
 # Temporary state tracker for setting custom values
 USER_STATES = {}
 
+def to_smallcaps(text: str) -> str:
+    """Converts standard lowercase/uppercase English alphabets into aesthetic Smallcaps unicode."""
+    uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    lowercase = "abcdefghijklmnopqrstuvwxyz"
+    
+    # Exact smallcaps characters requested: ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋ𝚕ᴍɴᴏᴩqʀꜱᴛᴜᴠᴡxyᴢ
+    small_upper = "ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋ𝚕ᴍɴᴏᴩqʀꜱᴛᴜᴠᴡxyᴢ"
+    small_lower = "ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋ𝚕ᴍɴᴏᴩqʀꜱᴛᴜᴠᴡxyᴢ"
+    
+    trans_table = str.maketrans(uppercase + lowercase, small_upper + small_lower)
+    return text.translate(trans_table)
+
 async def is_user_subscribed(bot, user_id: int) -> bool:
     """Checks if the user is a member of both mandatory F-Sub channels."""
     if not Config.CHANNEL_1_ID or not Config.CHANNEL_2_ID:
@@ -49,9 +61,9 @@ async def send_fsub_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     text = (
-        "⚠️ **Access Restricted**\n\n"
-        "To use this bot, you must join both of our official channels. "
-        "Please join using the buttons below and click **Try Again**."
+        f"⚠️ **{to_smallcaps('Access Restricted')}**\n\n"
+        f"{to_smallcaps('To use this bot, you must join both of our official channels. ')}"
+        f"{to_smallcaps('Please join using the buttons below and click')} **{to_smallcaps('Try Again')}**."
     )
     if update.message:
         await update.message.reply_text(text, reply_markup=reply_markup, parse_mode="Markdown")
@@ -72,18 +84,18 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Displays the main bot welcome interface."""
     keyboard = [
-        [InlineKeyboardButton("⚙️ Settings Hub", callback_data="open_settings")],
+        [InlineKeyboardButton(f"⚙️ {to_smallcaps('Settings Hub')}", callback_data="open_settings")],
         [
-            InlineKeyboardButton("ℹ️ About", callback_data="about_menu"),
-            InlineKeyboardButton("📢 Updates", url=Config.UPDATE_CHANNEL)
+            InlineKeyboardButton(f"ℹ️ {to_smallcaps('About')}", callback_data="about_menu"),
+            InlineKeyboardButton(f"📢 {to_smallcaps('Updates')}", url=Config.UPDATE_CHANNEL)
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     text = (
-        "🔥 **Welcome to Deadpool Audio Renamer!**\n\n"
-        "I can help you rename audio tracks, inject metadata, customize thumbnails, "
-        "and apply personal captions automatically.\n\n"
-        "Choose an option below to manage your preferences:"
+        f"🔥 **{to_smallcaps('Welcome to Deadpool Audio Renamer!')}**\n\n"
+        f"{to_smallcaps('I can help you rename audio tracks, inject metadata, customize thumbnails, ')}"
+        f"{to_smallcaps('and apply personal captions automatically.')}\n\n"
+        f"{to_smallcaps('Choose an option below to manage your preferences:')}"
     )
     
     if update.callback_query:
@@ -99,31 +111,31 @@ async def settings_menu_callback(update: Update, context: ContextTypes.DEFAULT_T
     
     settings = await db.get_user_settings(user_id)
     
-    thumb_status = "✅ Set" if settings.get("thumbnail") else "❌ Not Set"
-    caption_status = f"`{settings['caption']}`" if settings.get("caption") else "❌ Not Set"
-    title_status = f"`{settings['audio_title']}`" if settings.get("audio_title") else "❌ Not Set"
-    artist_status = f"`{settings['artist_name']}`" if settings.get("artist_name") else "❌ Not Set"
+    thumb_status = f"✅ {to_smallcaps('Set')}" if settings.get("thumbnail") else f"❌ {to_smallcaps('Not Set')}"
+    caption_status = f"`{settings['caption']}`" if settings.get("caption") else f"❌ {to_smallcaps('Not Set')}"
+    title_status = f"`{settings['audio_title']}`" if settings.get("audio_title") else f"❌ {to_smallcaps('Not Set')}"
+    artist_status = f"`{settings['artist_name']}`" if settings.get("artist_name") else f"❌ {to_smallcaps('Not Set')}"
 
     text = (
-        "⚙️ **USER SETTINGS DASHBOARD**\n\n"
-        f"👤 **User ID:** `{user_id}`\n"
-        f"🖼️ **Permanent Thumbnail:** {thumb_status}\n"
-        f"📝 **Custom Caption:** {caption_status}\n"
-        f"🎵 **Audio Title/Header:** {title_status}\n"
-        f"🎙️ **Artist Name:** {artist_status}\n\n"
-        "Select a category below to configure:"
+        f"⚙️ **{to_smallcaps('User Settings Dashboard')}**\n\n"
+        f"👤 **{to_smallcaps('User ID')}:** `{user_id}`\n"
+        f"🖼️ **{to_smallcaps('Permanent Thumbnail')}:** {thumb_status}\n"
+        f"📝 **{to_smallcaps('Custom Caption')}:** {caption_status}\n"
+        f"🎵 **{to_smallcaps('Audio Title/Header')}:** {title_status}\n"
+        f"🎙️ **{to_smallcaps('Artist Name')}:** {artist_status}\n\n"
+        f"{to_smallcaps('Select a category below to configure:')}"
     )
     
     keyboard = [
         [
-            InlineKeyboardButton("🖼️ Thumbnail", callback_data="menu_thumb"),
-            InlineKeyboardButton("📝 Caption", callback_data="menu_caption")
+            InlineKeyboardButton(f"🖼️ {to_smallcaps('Thumbnail')}", callback_data="menu_thumb"),
+            InlineKeyboardButton(f"📝 {to_smallcaps('Caption')}", callback_data="menu_caption")
         ],
         [
-            InlineKeyboardButton("🎵 Audio Title", callback_data="menu_title"),
-            InlineKeyboardButton("🎙️ Artist", callback_data="menu_artist")
+            InlineKeyboardButton(f"🎵 {to_smallcaps('Audio Title')}", callback_data="menu_title"),
+            InlineKeyboardButton(f"🎙️ {to_smallcaps('Artist')}", callback_data="menu_artist")
         ],
-        [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
+        [InlineKeyboardButton(f"🔙 {to_smallcaps('Main Menu')}", callback_data="main_menu")]
     ]
     await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
@@ -145,19 +157,19 @@ async def sub_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             USER_STATES.pop(query.from_user.id, None)
             keyboard = [
                 [
-                    InlineKeyboardButton("📤 Set", callback_data=f"set_{key}"),
-                    InlineKeyboardButton("👁️ View", callback_data=f"view_{key}")
+                    InlineKeyboardButton(f"📤 {to_smallcaps('Set')}", callback_data=f"set_{key}"),
+                    InlineKeyboardButton(f"👁️ {to_smallcaps('View')}", callback_data=f"view_{key}")
                 ],
                 [
-                    InlineKeyboardButton("🗑️ Delete", callback_data=f"del_{key}"),
-                    InlineKeyboardButton("🔙 Settings", callback_data="open_settings")
+                    InlineKeyboardButton(f"🗑️ {to_smallcaps('Delete')}", callback_data=f"del_{key}"),
+                    InlineKeyboardButton(f"🔙 {to_smallcaps('Settings')}", callback_data="open_settings")
                 ]
             ]
             if key == "caption":
-                keyboard.insert(1, [InlineKeyboardButton("💡 Preset Examples", callback_data="caption_examples")])
+                keyboard.insert(1, [InlineKeyboardButton(f"💡 {to_smallcaps('Preset Examples')}", callback_data="caption_examples")])
 
             await query.message.edit_text(
-                f"⚙️ **{name} Settings**\n\nChoose an action below:",
+                f"⚙️ **{to_smallcaps(name + ' Settings')}**\n\n{to_smallcaps('Choose an action below:')}",
                 reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode="Markdown"
             )
@@ -171,10 +183,10 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if data == "check_fsub":
         if await is_user_subscribed(context.bot, user_id):
-            await query.answer("✅ Verification successful! Welcome.", show_alert=False)
+            await query.answer(f"✅ {to_smallcaps('Verification successful!')} Welcome.", show_alert=False)
             await show_main_menu(update, context)
         else:
-            await query.answer("❌ You still haven't joined both channels!", show_alert=True)
+            await query.answer(f"❌ {to_smallcaps('You still haven’t joined both channels!')}", show_alert=True)
             
     elif data == "main_menu":
         USER_STATES.pop(user_id, None)
@@ -190,20 +202,20 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         val = settings.get(key)
         
         if not val:
-            await query.answer(f"❌ No custom {key.replace('_', ' ')} found!", show_alert=True)
+            await query.answer(f"❌ {to_smallcaps('No custom ' + key.replace('_', ' ') + ' found!')}", show_alert=True)
             return
             
         if key == "thumbnail":
             await query.answer()
-            await context.bot.send_photo(chat_id=user_id, photo=val, caption="🖼️ Your saved permanent thumbnail:")
+            await context.bot.send_photo(chat_id=user_id, photo=val, caption=f"🖼️ {to_smallcaps('Your saved permanent thumbnail:')}")
         else:
             await query.answer()
-            await query.message.reply_text(f"👁️ **Your {key.replace('_', ' ')}:**\n\n{val}", parse_mode="Markdown")
+            await query.message.reply_text(f"👁️ **{to_smallcaps('Your ' + key.replace('_', ' '))}:**\n\n{val}", parse_mode="Markdown")
             
     elif data.startswith("del_"):
         key = data.split("_")[1]
         await db.delete_setting(user_id, key)
-        await query.answer(f"🗑️ Successfully deleted {key.replace('_', ' ')}!", show_alert=False)
+        await query.answer(f"🗑️ {to_smallcaps('Successfully deleted ' + key.replace('_', ' ') + '!')}", show_alert=False)
         query.data = f"menu_{key}"
         await sub_menu_handler(update, context)
         
@@ -213,43 +225,43 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.answer()
         
         prompts = {
-            "thumbnail": "🖼️ Send the image you want to use as your permanent thumbnail.",
-            "caption": "📝 Send your custom caption text.\n\nTags available: `{title}`, `{artist}`, `{size}`",
-            "audio_title": "🎵 Send your custom audio title/header text.",
-            "artist_name": "🎙️ Send your custom artist name."
+            "thumbnail": f"🖼️ {to_smallcaps('Send the image you want to use as your permanent thumbnail.')}",
+            "caption": f"📝 {to_smallcaps('Send your custom caption text.')}\n\n{to_smallcaps('Tags available:')} `{{title}}`, `{{artist}}`, `{{size}}`",
+            "audio_title": f"🎵 {to_smallcaps('Send your custom audio title/header text.')}",
+            "artist_name": f"🎙️ {to_smallcaps('Send your custom artist name.')}"
         }
         
-        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data=f"menu_{key}")]]
-        await query.message.edit_text(prompts.get(key, "Send your value:"), reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+        keyboard = [[InlineKeyboardButton(f"🔙 {to_smallcaps('Cancel')}", callback_data=f"menu_{key}")]]
+        await query.message.edit_text(prompts.get(key, to_smallcaps("Send your value:")), reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
     elif data == "caption_examples":
         await query.answer()
         example_text = (
-            "💡 **CAPTION PRESET EXAMPLES**\n\n"
-            "1️⃣ Minimal & Channel Link:\n"
+            f"💡 **{to_smallcaps('Caption Preset Examples')}**\n\n"
+            f"1️⃣ {to_smallcaps('Minimal & Channel Link')}:\n"
             "`🎵 {title} - {artist} [{size}]\n📢 Join: @YourChannel`\n\n"
-            "2️⃣ Structured Audio Layout:\n"
+            f"2️⃣ {to_smallcaps('Structured Audio Layout')}:\n"
             "`🎧 Track: {title}\n👤 Artist: {artist}\n📊 Size: {size}\n\n⚡ Uploaded via @YourChannel`"
         )
-        keyboard = [[InlineKeyboardButton("🔙 Back to Caption", callback_data="menu_caption")]]
+        keyboard = [[InlineKeyboardButton(f"🔙 {to_smallcaps('Back to Caption')}", callback_data="menu_caption")]]
         await query.message.edit_text(example_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
     elif data == "about_menu":
         await query.answer()
         text = (
-            "ℹ️ **ABOUT BOT**\n\n"
-            f"• **Developer/Owner:** {Config.OWNER_USERNAME}\n"
-            f"• **Theme:** Deadpool Audio Renamer\n\n"
-            "High-performance audio renaming bot built with clean modular architecture."
+            f"ℹ️ **{to_smallcaps('About Bot')}**\n\n"
+            f"• **{to_smallcaps('Developer/Owner')}:** {Config.OWNER_USERNAME}\n"
+            f"• **{to_smallcaps('Theme')}:** Deadpool Audio Renamer\n\n"
+            f"{to_smallcaps('High-performance audio renaming bot built with clean modular architecture.')}"
         )
         keyboard = [
             [
-                InlineKeyboardButton("📢 Updates", url=Config.UPDATE_CHANNEL),
-                InlineKeyboardButton("💬 Support", url=Config.SUPPORT_GROUP)
+                InlineKeyboardButton(f"📢 {to_smallcaps('Updates')}", url=Config.UPDATE_CHANNEL),
+                InlineKeyboardButton(f"💬 {to_smallcaps('Support')}", url=Config.SUPPORT_GROUP)
             ],
             [
-                InlineKeyboardButton("💻 Source Code", url="https://github.com/MrBoss002/Audio-Renamer"),
-                InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")
+                InlineKeyboardButton(f"💻 {to_smallcaps('Source Code')}", url="https://github.com/MrBoss002/Audio-Renamer"),
+                InlineKeyboardButton(f"🔙 {to_smallcaps('Main Menu')}", callback_data="main_menu")
             ]
         ]
         await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
@@ -264,16 +276,16 @@ async def text_and_media_input_handler(update: Update, context: ContextTypes.DEF
 
     if state == "awaiting_thumbnail":
         if not update.message.photo:
-            await update.message.reply_text("❌ Please send a valid **image** for your thumbnail.")
+            await update.message.reply_text(f"❌ {to_smallcaps('Please send a valid image for your thumbnail.')}")
             return
         file_id = update.message.photo[-1].file_id
         await db.update_setting(user_id, "thumbnail", file_id)
         USER_STATES.pop(user_id, None)
-        await update.message.reply_text("✅ Permanent thumbnail saved successfully!")
+        await update.message.reply_text(f"✅ {to_smallcaps('Permanent thumbnail saved successfully!')}")
         
     elif state in ["awaiting_caption", "awaiting_audio_title", "awaiting_artist_name"]:
         if not update.message.text:
-            await update.message.reply_text("❌ Please send valid **text**.")
+            await update.message.reply_text(f"❌ {to_smallcaps('Please send valid text.')}")
             return
         
         key_map = {
@@ -286,35 +298,35 @@ async def text_and_media_input_handler(update: Update, context: ContextTypes.DEF
         
         await db.update_setting(user_id, db_key, val)
         USER_STATES.pop(user_id, None)
-        await update.message.reply_text(f"✅ Successfully updated your {db_key.replace('_', ' ')}!")
+        await update.message.reply_text(f"✅ {to_smallcaps('Successfully updated your ' + db_key.replace('_', ' ') + '!')}")
 
     settings = await db.get_user_settings(user_id)
     
-    thumb_status = "✅ Set" if settings.get("thumbnail") else "❌ Not Set"
-    caption_status = f"`{settings['caption']}`" if settings.get("caption") else "❌ Not Set"
-    title_status = f"`{settings['audio_title']}`" if settings.get("audio_title") else "❌ Not Set"
-    artist_status = f"`{settings['artist_name']}`" if settings.get("artist_name") else "❌ Not Set"
+    thumb_status = f"✅ {to_smallcaps('Set')}" if settings.get("thumbnail") else f"❌ {to_smallcaps('Not Set')}"
+    caption_status = f"`{settings['caption']}`" if settings.get("caption") else f"❌ {to_smallcaps('Not Set')}"
+    title_status = f"`{settings['audio_title']}`" if settings.get("audio_title") else f"❌ {to_smallcaps('Not Set')}"
+    artist_status = f"`{settings['artist_name']}`" if settings.get("artist_name") else f"❌ {to_smallcaps('Not Set')}"
 
     text = (
-        "⚙️ **USER SETTINGS DASHBOARD**\n\n"
-        f"👤 **User ID:** `{user_id}`\n"
-        f"🖼️ **Permanent Thumbnail:** {thumb_status}\n"
-        f"📝 **Custom Caption:** {caption_status}\n"
-        f"🎵 **Audio Title/Header:** {title_status}\n"
-        f"🎙️ **Artist Name:** {artist_status}\n\n"
-        "Select another category below to customize:"
+        f"⚙️ **{to_smallcaps('User Settings Dashboard')}**\n\n"
+        f"👤 **{to_smallcaps('User ID')}:** `{user_id}`\n"
+        f"🖼️ **{to_smallcaps('Permanent Thumbnail')}:** {thumb_status}\n"
+        f"📝 **{to_smallcaps('Custom Caption')}:** {caption_status}\n"
+        f"🎵 **{to_smallcaps('Audio Title/Header')}:** {title_status}\n"
+        f"🎙️ **{to_smallcaps('Artist Name')}:** {artist_status}\n\n"
+        f"{to_smallcaps('Select another category below to customize:')}"
     )
     
     keyboard = [
         [
-            InlineKeyboardButton("🖼️ Thumbnail", callback_data="menu_thumb"),
-            InlineKeyboardButton("📝 Caption", callback_data="menu_caption")
+            InlineKeyboardButton(f"🖼️ {to_smallcaps('Thumbnail')}", callback_data="menu_thumb"),
+            InlineKeyboardButton(f"📝 {to_smallcaps('Caption')}", callback_data="menu_caption")
         ],
         [
-            InlineKeyboardButton("🎵 Audio Title", callback_data="menu_title"),
-            InlineKeyboardButton("🎙️ Artist", callback_data="menu_artist")
+            InlineKeyboardButton(f"🎵 {to_smallcaps('Audio Title')}", callback_data="menu_title"),
+            InlineKeyboardButton(f"🎙️ {to_smallcaps('Artist')}", callback_data="menu_artist")
         ],
-        [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
+        [InlineKeyboardButton(f"🔙 {to_smallcaps('Main Menu')}", callback_data="main_menu")]
     ]
     
     await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
@@ -363,7 +375,7 @@ async def handle_audio_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         caption = f"🎵 **Title:** {custom_title}\n🎙️ **Artist:** {custom_artist}\n📊 **Size:** {size_str}\n\nvia : @BossAudioRenamerBot 🎊"
 
-    status_msg = await message.reply_text("📥 Downloading and processing your audio file...")
+    status_msg = await message.reply_text(f"📥 {to_smallcaps('Downloading and processing your audio file...')}")
 
     try:
         file = await context.bot.get_file(audio.file_id)
