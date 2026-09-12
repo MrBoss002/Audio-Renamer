@@ -255,7 +255,7 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
 async def text_and_media_input_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Captures user input when setting thumbnails, captions, or custom titles."""
+    """Captures user input when setting thumbnails, captions, or custom titles and refreshes the settings dashboard."""
     user_id = update.effective_user.id
     state = USER_STATES.get(user_id)
     
@@ -288,6 +288,38 @@ async def text_and_media_input_handler(update: Update, context: ContextTypes.DEF
         USER_STATES.pop(user_id, None)
         await update.message.reply_text(f"✅ Successfully updated your {db_key.replace('_', ' ')}!")
 
+    # Fetch updated settings and display the fresh dashboard card for customizing next settings
+    settings = await db.get_user_settings(user_id)
+    
+    thumb_status = "✅ Set" if settings["thumbnail"] else "❌ Not Set"
+    caption_status = f"`{settings['caption']}`" if settings["caption"] else "❌ Not Set"
+    title_status = f"`{settings['audio_title']}`" if settings["audio_title"] else "❌ Not Set"
+    artist_status = f"`{settings['artist_name']}`" if settings["artist_name"] else "❌ Not Set"
+
+    text = (
+        "⚙️ **USER SETTINGS DASHBOARD**\n\n"
+        f"👤 **User ID:** `{user_id}`\n"
+        f"🖼️ **Permanent Thumbnail:** {thumb_status}\n"
+        f"📝 **Custom Caption:** {caption_status}\n"
+        f"🎵 **Audio Title/Header:** {title_status}\n"
+        f"🎙️ **Artist Name:** {artist_status}\n\n"
+        "Select another category below to customize:"
+    )
+    
+    keyboard = [
+        [
+            InlineKeyboardButton("🖼️ Thumbnail", callback_data="menu_thumb"),
+            InlineKeyboardButton("📝 Caption", callback_data="menu_caption")
+        ],
+        [
+            InlineKeyboardButton("🎵 Audio Title", callback_data="menu_title"),
+            InlineKeyboardButton("🎙️ Artist", callback_data="menu_artist")
+        ],
+        [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
+    ]
+    
+    await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+
 def main():
     """Application Entrypoint."""
     if not Config.BOT_TOKEN:
@@ -300,7 +332,7 @@ def main():
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CallbackQueryHandler(sub_menu_handler, pattern="^menu_"))
     app.add_handler(CallbackQueryHandler(button_router))
-    app.add_handler(MessageHandler(filters.PHOTO | filters.TEXT & ~filters.COMMAND, text_and_media_input_handler))
+    app.add_handler(MessageHandler(filters.PHOTO | filters.TEXT & ~filters.COMMAND, text_and_main_input_handler if 'text_and_main_input_handler' in globals() else text_and_media_input_handler))
 
     logger.info("Deadpool Audio Renamer Bot is up and running...")
     app.run_polling()
