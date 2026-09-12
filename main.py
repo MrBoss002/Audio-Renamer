@@ -28,7 +28,6 @@ def to_smallcaps(text: str) -> str:
     uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     lowercase = "abcdefghijklmnopqrstuvwxyz"
     
-    # Exact smallcaps characters requested: ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋ𝚕ᴍɴᴏᴩqʀꜱᴛᴜᴠᴡxyᴢ
     small_upper = "ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋ𝚕ᴍɴᴏᴩqʀꜱᴛᴜᴠᴡxyᴢ"
     small_lower = "ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋ𝚕ᴍɴᴏᴩqʀꜱᴛᴜᴠᴡxyᴢ"
     
@@ -38,7 +37,7 @@ def to_smallcaps(text: str) -> str:
 async def is_user_subscribed(bot, user_id: int) -> bool:
     """Checks if the user is a member of both mandatory F-Sub channels."""
     if not Config.CHANNEL_1_ID or not Config.CHANNEL_2_ID:
-        return True  # Bypass if IDs are not configured
+        return True  
         
     for channel_id in [Config.CHANNEL_1_ID, Config.CHANNEL_2_ID]:
         try:
@@ -109,12 +108,12 @@ async def settings_menu_callback(update: Update, context: ContextTypes.DEFAULT_T
     await query.answer()
     user_id = query.from_user.id
     
-    settings = await db.get_user_settings(user_id)
+    settings = await db.get_user_settings(user_id) or {}
     
     thumb_status = f"✅ {to_smallcaps('Set')}" if settings.get("thumbnail") else f"❌ {to_smallcaps('Not Set')}"
-    caption_status = f"`{settings['caption']}`" if settings.get("caption") else f"❌ {to_smallcaps('Not Set')}"
-    title_status = f"`{settings['audio_title']}`" if settings.get("audio_title") else f"❌ {to_smallcaps('Not Set')}"
-    artist_status = f"`{settings['artist_name']}`" if settings.get("artist_name") else f"❌ {to_smallcaps('Not Set')}"
+    caption_status = f"`{settings.get('caption')}`" if settings.get("caption") else f"❌ {to_smallcaps('Not Set')}"
+    title_status = f"`{settings.get('audio_title')}`" if settings.get("audio_title") else f"❌ {to_smallcaps('Not Set')}"
+    artist_status = f"`{settings.get('artist_name')}`" if settings.get("artist_name") else f"❌ {to_smallcaps('Not Set')}"
 
     text = (
         f"⚙️ **{to_smallcaps('User Settings Dashboard')}**\n\n"
@@ -197,8 +196,8 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await settings_menu_callback(update, context)
         
     elif data.startswith("view_"):
-        key = data.split("_")[1]
-        settings = await db.get_user_settings(user_id)
+        key = data.split("_", 1)[1]
+        settings = await db.get_user_settings(user_id) or {}
         val = settings.get(key)
         
         if not val:
@@ -213,14 +212,14 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.reply_text(f"👁️ **{to_smallcaps('Your ' + key.replace('_', ' '))}:**\n\n{val}", parse_mode="Markdown")
             
     elif data.startswith("del_"):
-        key = data.split("_")[1]
+        key = data.split("_", 1)[1]
         await db.delete_setting(user_id, key)
         await query.answer(f"🗑️ {to_smallcaps('Successfully deleted ' + key.replace('_', ' ') + '!')}", show_alert=False)
         query.data = f"menu_{key}"
         await sub_menu_handler(update, context)
         
     elif data.startswith("set_"):
-        key = data.split("_")[1]
+        key = data.split("_", 1)[1]
         USER_STATES[user_id] = f"awaiting_{key}"
         await query.answer()
         
@@ -293,19 +292,24 @@ async def text_and_media_input_handler(update: Update, context: ContextTypes.DEF
             "awaiting_audio_title": "audio_title",
             "awaiting_artist_name": "artist_name"
         }
-        db_key = key_map[state]
+        db_key = key_map.get(state)
         val = update.message.text
         
-        await db.update_setting(user_id, db_key, val)
-        USER_STATES.pop(user_id, None)
-        await update.message.reply_text(f"✅ {to_smallcaps('Successfully updated your ' + db_key.replace('_', ' ') + '!')}")
+        try:
+            await db.update_setting(user_id, db_key, val)
+            USER_STATES.pop(user_id, None)
+            await update.message.reply_text(f"✅ {to_smallcaps('Successfully updated your ' + db_key.replace('_', ' ') + '!')}")
+        except Exception as e:
+            logger.error(f"Failed to update setting {db_key} for user {user_id}: {e}")
+            await update.message.reply_text(f"❌ {to_smallcaps('Failed to save. Please try again.')}")
+            return
 
-    settings = await db.get_user_settings(user_id)
+    settings = await db.get_user_settings(user_id) or {}
     
     thumb_status = f"✅ {to_smallcaps('Set')}" if settings.get("thumbnail") else f"❌ {to_smallcaps('Not Set')}"
-    caption_status = f"`{settings['caption']}`" if settings.get("caption") else f"❌ {to_smallcaps('Not Set')}"
-    title_status = f"`{settings['audio_title']}`" if settings.get("audio_title") else f"❌ {to_smallcaps('Not Set')}"
-    artist_status = f"`{settings['artist_name']}`" if settings.get("artist_name") else f"❌ {to_smallcaps('Not Set')}"
+    caption_status = f"`{settings.get('caption')}`" if settings.get("caption") else f"❌ {to_smallcaps('Not Set')}"
+    title_status = f"`{settings.get('audio_title')}`" if settings.get("audio_title") else f"❌ {to_smallcaps('Not Set')}"
+    artist_status = f"`{settings.get('artist_name')}`" if settings.get("artist_name") else f"❌ {to_smallcaps('Not Set')}"
 
     text = (
         f"⚙️ **{to_smallcaps('User Settings Dashboard')}**\n\n"
@@ -348,7 +352,7 @@ async def handle_audio_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_fsub_message(update, context)
         return
 
-    settings = await db.get_user_settings(user_id)
+    settings = await db.get_user_settings(user_id) or {}
     
     original_name = getattr(audio, "file_name", "audio_file.mp3")
     file_size_bytes = getattr(audio, "file_size", 0)
