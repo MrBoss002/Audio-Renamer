@@ -42,7 +42,11 @@ class Database:
 
     async def update_setting(self, user_id: int, key: str, value):
         """Updates a specific user setting (thumbnail, caption, audio_title, artist_name)."""
-        await self._users.update_one({"_id": user_id}, {"$set": {key: value}})
+        await self._users.update_one(
+            {"_id": user_id}, 
+            {"$set": {key: value}}, 
+            upsert=True
+        )
 
     async def delete_setting(self, user_id: int, key: str):
         """Clears/resets a specific user setting back to None."""
