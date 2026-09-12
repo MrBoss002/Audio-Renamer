@@ -1,5 +1,7 @@
 import os
 import logging
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
@@ -130,7 +132,6 @@ async def sub_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     data = query.data
     
-    # Map callback data to readable names and keys
     category_map = {
         "menu_thumb": ("Thumbnail", "thumbnail"),
         "menu_caption": ("Custom Caption", "caption"),
@@ -138,10 +139,9 @@ async def sub_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "menu_artist": ("Artist Name", "artist_name")
     }
     
-    # Check if a category menu was clicked
     for prefix, (name, key) in category_map.items():
         if data == prefix:
-            USER_STATES.pop(query.from_user.id, None) # Clear active input states
+            USER_STATES.pop(query.from_user.id, None)
             keyboard = [
                 [
                     InlineKeyboardButton("📤 Set", callback_data=f"set_{key}"),
@@ -203,7 +203,6 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         key = data.split("_")[1]
         await db.delete_setting(user_id, key)
         await query.answer(f"🗑️ Successfully deleted {key.replace('_', ' ')}!", show_alert=False)
-        # Refresh menu
         query.data = f"menu_{key}"
         await sub_menu_handler(update, context)
         
@@ -260,7 +259,7 @@ async def text_and_media_input_handler(update: Update, context: ContextTypes.DEF
     state = USER_STATES.get(user_id)
     
     if not state:
-        return # Ignore random messages if user isn't in a setup state
+        return
 
     if state == "awaiting_thumbnail":
         if not update.message.photo:
@@ -288,7 +287,6 @@ async def text_and_media_input_handler(update: Update, context: ContextTypes.DEF
         USER_STATES.pop(user_id, None)
         await update.message.reply_text(f"✅ Successfully updated your {db_key.replace('_', ' ')}!")
 
-    # Fetch updated settings and display the fresh dashboard card for customizing next settings
     settings = await db.get_user_settings(user_id)
     
     thumb_status = "✅ Set" if settings["thumbnail"] else "❌ Not Set"
@@ -320,11 +318,26 @@ async def text_and_media_input_handler(update: Update, context: ContextTypes.DEF
     
     await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
+def run_dummy_server():
+    """Starts a minimal HTTP server to satisfy Render's port-binding check."""
+    class DummyHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"Deadpool Renamer Bot is alive and running!")
+            
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(("0.0.0.0", port), DummyHandler)
+    server.serve_forever()
+
 def main():
     """Application Entrypoint."""
     if not Config.BOT_TOKEN:
         logger.error("BOT_TOKEN is missing from environment variables!")
         return
+
+    # Start the dummy HTTP server in a daemon thread for Render web service compatibility
+    threading.Thread(target=run_dummy_server, daemon=True).start()
 
     app = ApplicationBuilder().token(Config.BOT_TOKEN).build()
 
@@ -332,7 +345,7 @@ def main():
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CallbackQueryHandler(sub_menu_handler, pattern="^menu_"))
     app.add_handler(CallbackQueryHandler(button_router))
-    app.add_handler(MessageHandler(filters.PHOTO | filters.TEXT & ~filters.COMMAND, text_and_main_input_handler if 'text_and_main_input_handler' in globals() else text_and_media_input_handler))
+    app.add_handler(MessageHandler(filters.PHOTO | (filters.TEXT & ~filters.COMMAND), text_and_media_input_handler))
 
     logger.info("Deadpool Audio Renamer Bot is up and running...")
     app.run_polling()
