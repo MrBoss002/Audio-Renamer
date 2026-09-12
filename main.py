@@ -20,7 +20,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Temporary state tracker for setting custom values (thumbnails, captions, etc.)
+# Temporary state tracker for setting custom values
 USER_STATES = {}
 
 async def is_user_subscribed(bot, user_id: int) -> bool:
@@ -99,10 +99,10 @@ async def settings_menu_callback(update: Update, context: ContextTypes.DEFAULT_T
     
     settings = await db.get_user_settings(user_id)
     
-    thumb_status = "✅ Set" if settings["thumbnail"] else "❌ Not Set"
-    caption_status = f"`{settings['caption']}`" if settings["caption"] else "❌ Not Set"
-    title_status = f"`{settings['audio_title']}`" if settings["audio_title"] else "❌ Not Set"
-    artist_status = f"`{settings['artist_name']}`" if settings["artist_name"] else "❌ Not Set"
+    thumb_status = "✅ Set" if settings.get("thumbnail") else "❌ Not Set"
+    caption_status = f"`{settings['caption']}`" if settings.get("caption") else "❌ Not Set"
+    title_status = f"`{settings['audio_title']}`" if settings.get("audio_title") else "❌ Not Set"
+    artist_status = f"`{settings['artist_name']}`" if settings.get("artist_name") else "❌ Not Set"
 
     text = (
         "⚙️ **USER SETTINGS DASHBOARD**\n\n"
@@ -255,7 +255,7 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
 async def text_and_media_input_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Captures user input when setting thumbnails, captions, or custom titles and refreshes the settings dashboard."""
+    """Captures user input when setting thumbnails, captions, or custom titles/artists."""
     user_id = update.effective_user.id
     state = USER_STATES.get(user_id)
     
@@ -290,10 +290,10 @@ async def text_and_media_input_handler(update: Update, context: ContextTypes.DEF
 
     settings = await db.get_user_settings(user_id)
     
-    thumb_status = "✅ Set" if settings["thumbnail"] else "❌ Not Set"
-    caption_status = f"`{settings['caption']}`" if settings["caption"] else "❌ Not Set"
-    title_status = f"`{settings['audio_title']}`" if settings["audio_title"] else "❌ Not Set"
-    artist_status = f"`{settings['artist_name']}`" if settings["artist_name"] else "❌ Not Set"
+    thumb_status = "✅ Set" if settings.get("thumbnail") else "❌ Not Set"
+    caption_status = f"`{settings['caption']}`" if settings.get("caption") else "❌ Not Set"
+    title_status = f"`{settings['audio_title']}`" if settings.get("audio_title") else "❌ Not Set"
+    artist_status = f"`{settings['artist_name']}`" if settings.get("artist_name") else "❌ Not Set"
 
     text = (
         "⚙️ **USER SETTINGS DASHBOARD**\n\n"
@@ -323,7 +323,6 @@ async def handle_audio_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Processes incoming audio files specifically, applying custom title, artist, thumbnail, and caption."""
     user_id = update.effective_user.id
     
-    # Ignore if user is in the middle of a setting state
     if user_id in USER_STATES:
         return
 
@@ -333,29 +332,24 @@ async def handle_audio_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not audio:
         return
 
-    # Check F-Sub first
     if not await is_user_subscribed(context.bot, user_id):
         await send_fsub_message(update, context)
         return
 
-    # Fetch user settings from database
     settings = await db.get_user_settings(user_id)
     
     original_name = getattr(audio, "file_name", "audio_file.mp3")
     file_size_bytes = getattr(audio, "file_size", 0)
     
-    # Format file size nicely (MB/KB)
     if file_size_bytes > 1024 * 1024:
         size_str = f"{file_size_bytes / (1024 * 1024):.2f} MB"
     else:
         size_str = f"{file_size_bytes / 1024:.2f} KB"
 
-    # Extract clean title and artist defaults from filename if custom settings aren't provided
     base_name = os.path.splitext(original_name)[0]
     custom_title = settings.get("audio_title") or base_name
     custom_artist = settings.get("artist_name") or "Unknown Artist"
     
-    # Build custom caption using user settings or default layout with bot signature
     raw_caption = settings.get("caption")
     if raw_caption:
         try:
@@ -372,14 +366,12 @@ async def handle_audio_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status_msg = await message.reply_text("📥 Downloading and processing your audio file...")
 
     try:
-        # Download audio file
         file = await context.bot.get_file(audio.file_id)
         file_path = f"downloads_{user_id}_{original_name}"
         await file.download_to_drive(file_path)
 
-        thumbnail = settings.get("thumbnail") # file_id of saved custom thumbnail
+        thumbnail = settings.get("thumbnail")
 
-        # Send back the processed audio file
         with open(file_path, 'rb') as audio_file:
             await context.bot.send_audio(
                 chat_id=user_id,
@@ -388,10 +380,9 @@ async def handle_audio_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 performer=custom_artist,
                 caption=caption,
                 parse_mode="Markdown",
-                thumb=thumbnail if thumbnail else None
+                thumbnail=thumbnail if thumbnail else None
             )
 
-        # Cleanup local file
         if os.path.exists(file_path):
             os.remove(file_path)
             
@@ -419,12 +410,10 @@ def main():
         logger.error("BOT_TOKEN is missing from environment variables!")
         return
 
-    # Start the dummy HTTP server in a daemon thread for Render web service compatibility
     threading.Thread(target=run_dummy_server, daemon=True).start()
 
     app = ApplicationBuilder().token(Config.BOT_TOKEN).build()
 
-    # Handlers
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CallbackQueryHandler(sub_menu_handler, pattern="^menu_"))
     app.add_handler(CallbackQueryHandler(button_router))
