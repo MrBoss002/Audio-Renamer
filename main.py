@@ -28,8 +28,8 @@ def to_smallcaps(text: str) -> str:
     uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     lowercase = "abcdefghijklmnopqrstuvwxyz"
     
-    small_upper = "ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋ𝚕ᴍɴᴏᴩqʀꜱᴛᴜᴠᴡxyᴢ"
-    small_lower = "ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋ𝚕ᴍɴᴏᴩqʀꜱᴛᴜᴠᴡxyᴢ"
+    small_upper = "ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍɴᴏᴩqʀꜱᴛᴜᴠᴡxyᴢ"
+    small_lower = "ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍɴᴏᴩqʀꜱᴛᴜᴠᴡxyᴢ"
     
     trans_table = str.maketrans(uppercase + lowercase, small_upper + small_lower)
     return text.translate(trans_table)
@@ -381,12 +381,27 @@ async def handle_audio_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     status_msg = await message.reply_text(f"📥 {to_smallcaps('Downloading and processing your audio file...')}")
 
+    file_path = None
+    thumb_path = None
+
     try:
+        # Download the audio file
         file = await context.bot.get_file(audio.file_id)
         file_path = f"downloads_{user_id}_{original_name}"
         await file.download_to_drive(file_path)
 
-        thumbnail = settings.get("thumbnail")
+        thumbnail_file_id = settings.get("thumbnail")
+        thumb_file_obj = None
+
+        # Handle permanent thumbnail file downloading requirement for Telegram send_audio
+        if thumbnail_file_id:
+            try:
+                thumb_file = await context.bot.get_file(thumbnail_file_id)
+                thumb_path = f"thumb_{user_id}.jpg"
+                await thumb_file.download_to_drive(thumb_path)
+                thumb_file_obj = open(thumb_path, 'rb')
+            except Exception as thumb_err:
+                logger.error(f"Failed to download user thumbnail: {thumb_err}")
 
         with open(file_path, 'rb') as audio_file:
             await context.bot.send_audio(
@@ -396,16 +411,27 @@ async def handle_audio_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 performer=custom_artist,
                 caption=caption,
                 parse_mode="Markdown",
-                thumbnail=thumbnail if thumbnail else None
+                thumbnail=thumb_file_obj
             )
 
-        if os.path.exists(file_path):
+        # Close the thumbnail file handle if opened
+        if thumb_file_obj:
+            thumb_file_obj.close()
+
+        # Clean up temporary files
+        if file_path and os.path.exists(file_path):
             os.remove(file_path)
+        if thumb_path and os.path.exists(thumb_path):
+            os.remove(thumb_path)
             
         await status_msg.delete()
 
     except Exception as e:
         logger.error(f"Error processing audio file for user {user_id}: {e}")
+        if file_path and os.path.exists(file_path):
+            os.remove(file_path)
+        if thumb_path and os.path.exists(thumb_path):
+            os.remove(thumb_path)
         await status_msg.edit_text(f"❌ Error processing file: `{e}`", parse_mode="Markdown")
 
 def run_dummy_server():
