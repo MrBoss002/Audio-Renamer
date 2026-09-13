@@ -1,5 +1,6 @@
 import os
 import logging
+import platform
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -248,10 +249,12 @@ async def button_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "about_menu":
         await query.answer()
         text = (
-            f"ℹ️ **{to_smallcaps('About Bot')}**\n\n"
-            f"• **{to_smallcaps('Developer/Owner')}:** {Config.OWNER_USERNAME}\n"
-            f"• **{to_smallcaps('Theme')}:** Deadpool Audio Renamer\n\n"
-            f"{to_smallcaps('High-performance audio renaming bot built with clean modular architecture.')}"
+            f"ℹ️ **{to_smallcaps('About Meeh')}**\n\n"
+            f"• **{to_smallcaps('Dev')}:** {Config.OWNER_USERNAME}\n"
+            f"• **{to_smallcaps('Version')}:** v1.0.0\n"
+            f"• **{to_smallcaps('Language')}:** Python ({platform.python_version()})\n"
+            f"• **{to_smallcaps('Framework')}:** Python-Telegram-Bot\n\n"
+            f"{to_smallcaps('A reliable, high-performance tool designed to seamlessly customize audio metadata, inject permanent thumbnails, and manage automated caption templates.')}"
         )
         keyboard = [
             [
