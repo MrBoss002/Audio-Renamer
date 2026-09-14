@@ -4,7 +4,13 @@
 
 # ⚡ DeadPool Audio Renamer
 
-A high-performance, lightweight Telegram bot built with `python-telegram-bot` and MongoDB, designed for advanced audio/video renaming, custom metadata injection, permanent thumbnail management, and automated caption styling.
+**A high-performance, lightweight Telegram bot built with `python-telegram-bot` and MongoDB, designed for advanced audio/video renaming, custom metadata injection, permanent thumbnail management, and automated caption styling.**
+
+<br>
+
+  <a href="https://t.me/BossAudioRenamerBot">
+    <img src="https://img.shields.io/badge/_𝗧𝗥𝗬_𝗟𝗜𝗩𝗘_𝗕𝗢𝗧-24A1EF?style=for-the-badge&logo=telegram&logoColor=white" alt="Try Live Bot">
+</a>
 
 </div>
   
